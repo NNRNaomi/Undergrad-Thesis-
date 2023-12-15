@@ -1,0 +1,354 @@
+%stno=input('story number=');
+stno=6;
+% lemda=input('lemda=');
+% lemda1=input('lemda1='); if soft story then k1=k2 (??)
+% stper=input('ratio of inelastic stiffness to elastic=');
+
+% ac=input('GROUND ACCELARATION(m/sqsec)=');
+% f=input('frequency(Hz)=');
+% infill=input (' Is there any infill?=')% answer with 1/0,0 bare frame, 1 means yes, anythung else soft story
+% fn=input('natural frequency(Hz)=');
+ac=0.1;
+f=2.78;
+% infill=3;
+fn=2.78;
+
+
+
+% if infill==0   k1=140e6;k2=140e6; k3=140e6; k4=140e6; 
+%  elseif infill==1  k1=820e6;k2=140e6; k3=820e6; k4=140e6;
+%  else  k1=140e6; k2=140e6; k3=820e6; k4=140e6; %%soft story
+% end
+
+ % 
+ %k1=140e6;k2=140e6; k3=140e6; k4=140e6;%%only frame
+  %k1=820e6;k2=140e6; k3=820e6; k4=140e6; %% full infill
+ k1=140e6; k2=140e6; k3=820e6; k4=140e6; %%soft story
+
+
+
+% v=.01;
+v=.001;
+a3=0;      % a3 is the differential displacment of stories     
+Y=0;
+m=0;       % mass matrix(N)
+x0=0;      %initial condition
+A=0;
+B=0;
+C=0;
+t1=0;  % total simulation time
+%%
+T =0;  
+i=-6;  % i is time updater for loop
+i1=0;
+a =0;  % a is the total displacement slope matrix
+a2=0;  % s2 is the total displacement matrix
+t1big=0; % bigging time of simulation in each cycle
+t1fin=.1; % finishing time of simulation in each cycle
+  % initial condition ( displacement,slope)
+
+for q=1:1:(2*stno)
+    x0(1,q)=0;%%row matrix    [ 0 0 0 0 0 0 ]
+end
+for q=1:1: stno
+    uf2(q)=0; uf4(q)=0;vf1(q)=0;vf2(q)=0;vf4(q)=0;uf1(q)=0;uf3(q)=0;%%Naomi uf2 displacement of path 2, force of vf2
+    F(q)=0; ch(q)=1;
+    state(q)=1;
+end
+%%
+w1=1;%%Naomi for considering wall inilastisity for first floor
+q=1;
+for q=1:stno  %%Naomi for considering wall inilastisity for other floors
+    w(q)=1;
+end
+
+for T1=.1:.1:20
+    i=i+6;
+  
+ t=0;
+ c=0;
+ T=0;
+ U=0;
+p=0;
+q=0;
+    
+        ch(1)=1;
+        if (state(1)==1)
+            if (F(1)>k1*v & x0(1,2)>0 ) state(1)=2; uf1(1)=x0(1,1);ch(1)=0;k(1)=k2; w1=2;  %%Naomi state(1)=4 %Ch=0 state 2 %add counter when fy is reached
+            elseif (x0(1,2)<0 & (w1==1)) state(1)=3; vf2(1)=F(1); uf2(1)=x0(1,1);ch(1)=0;k(1)=k1;  %ch=0 state 3 %if this reaches fy the otehr side wall is also broken
+            else F(1)=k1*(x0(1,1));k(1)=k1;  %state 1 but ch=1 Naomi %%state=1, ch=1
+            end
+        end
+                
+        if (state(1)==2 & ch(1)==1)
+%             w1=2; %%Naomi one side wall broken
+            
+            if (x0(1,2)<0 & w1==3)   state(1)=4;uf3(1)=x0(1,1);ch(1)=0;k(1)=k2;w1=3;%%copied the things for state 4  naomi
+            elseif(x0(1,2)<0 & w1==2 ) state(1)=3; vf2(1)=F(1); uf2(1)=x0(1,1);ch(1)=0;k(1)=k1;%state=3 ch=0 %F(1)>abs(k1*v) naomi
+            else F(1) = k2*(x0(1,1)-uf1(1)) + vf1(1);k(1)=k2;  %state=2 ch=1 %%Naomi path 2 or 4??
+            end
+        end
+                
+        if (state(1)==3 & ch(1)==1)
+            
+         
+            if(F(1)<-k1*v) state(1)=4;uf3(1)=x0(1,1);ch(1)=0;k(1)=k2;w1=3; %state=4 ch=0 %% if the loop enters this once the other side wall is broken the conter mentioned abolve is updated
+            elseif (x0(1,2)>0 & (w1==1)) state(1)=1;vf4(1)=F(1);uf4(1)=x0(1,1);k(1)=k1;%state=1 ch=1
+            elseif(x0(1,2)>0 & (w1==2)) state(1)=2;  vf1(1)=F(1);uf1(1)=x0(1,1);ch(1)=0;k(1)=k2; w1=2;%% condition for state 3 is copied
+            else F(1)= vf2(1)+k1*(x0(1,1)-uf2(1));k(1)=k1;  %state=3 ch=1 unchnaged state
+            end
+        end
+                
+        if (state(1)==4 & ch(1)==1)
+            w1=3;
+%             if (x0(1,2)>0) state(1)=1; vf4(1)=F(1);uf4(1)=x0(1,1);k(1)=k1;%state=1 ch=1
+            if (x0(1,2)>0 && w==3) state(1)=2; vf1(1)=F(1) ;uf1(1)=x0(1,1);ch(1)=0;k(1)=k2; %%condition copied %naomi
+            else F(1)= -k2*(x0(1,1)-uf3(1))-k1* v; k(1)=k2;%state=4 ch=1 %% 2 / 4 both mean???naomi%%in state 4?%else F(1)= -k2*(x0(1,1)-uf3(1))-k1* v; k(1)=k2;
+            end
+        end
+%         ch(1)=1;
+%         if (state(1)==1)
+%             if (F(1)>k1*v && x0(1,2)>0) state(1)=2;uf1(1)=x0(1,1);ch(1)=0;k(1)=k2;
+%             elseif (x0(1,2)<0) state(1)=3; vf2(1)=F(1); uf2(1)=x0(1,1);ch(1)=0;k(1)=k1;
+%             else F(1)=k1*(x0(1,1)-uf4(1))+vf4(1);k(1)=k1;
+%             end
+%         end
+%                 
+%         if (state(1)==2 && ch(1)==1)
+%             if(x0(1,2)<0) state(1)=3; vf2(1)=F(1); uf2(1)=x0(1,1);ch(1)=0;k(1)=k1;
+%             else F(1) = k2*(x0(1,1)-uf1(1)) + k1*v;k(1)=k2;
+%             end
+%         end
+%                 
+%         if (state(1)==3 && ch(1)==1)
+%             if(F(1)<-k1*v) state(1)=4;uf3(1)=x0(1,1);ch(1)=0;k(1)=k2;
+%             elseif (x0(1,2)>0) state(1)=1;vf4(1)=F(1);uf4(1)=x0(1,1);k(1)=k1;
+%             else F(1)= vf2(1)+k1*(x0(1,1)-uf2(1));k(1)=k1;
+%             end
+%         end
+%                 
+%         if (state(1)==4 && ch(1)==1)
+%             if (x0(1,2)>0) state(1)=1; vf4(1)=F(1);uf4(1)=x0(1,1);k(1)=k1;
+%             else F(1)= -k2*(x0(1,1)-uf3(1))-k1* v; k(1)=k2;
+%             end
+%         end
+%             
+                
+    for s=2:stno
+        
+         ch(s)=1;  
+         if (state(s)==1)
+            if (F(s)>k3*v & (x0(1,2*s)>x0(1,(2*s-2)))) state(s)=2;uf1(s)=x0(1,(2*s-1));ch(s)=0;k(s)=k4;w=2;%%velocity of that floor is greater that that floor why Naomi
+            elseif (x0(1,2*s)<x0(1,(2*s-2)) & w==1) state(s)=3; vf2(s)=F(s);uf2(s)=(x0(1,(2*s-1)));ch(s)=0;k(s)=k3;
+            else F(s)=k3*(x0(1,(2*s-1)));k(s)=k3;
+            end
+         end
+%             if (state(1)==1)
+%             if (F(1)>k1*v & x0(1,2)>0 ) state(1)=2; uf1(1)=x0(1,1);ch(1)=0;k(1)=k2; w1=2;  %%Naomi state(1)=4 %Ch=0 state 2 %add counter when fy is reached
+%             elseif (x0(1,2)<0 & (w1==1)) state(1)=3; vf2(1)=F(1); uf2(1)=x0(1,1);ch(1)=0;k(1)=k1;  %ch=0 state 3 %if this reaches fy the otehr side wall is also broken
+%             else F(1)=k1*(x0(1,1));k(1)=k1;  %state 1 but ch=1 Naomi %%state=1, ch=1
+%             end
+%         end
+%          if (state(1)==1)
+%             if (F(1)>k1*v & x0(1,2)>0 ) state(1)=2; uf1(1)=x0(1,1);ch(1)=0;k(1)=k2; w1=2;  %%Naomi state(1)=4 %Ch=0 state 2 %add counter when fy is reached
+%             elseif (x0(1,2)<0 & w1==2) state(1)=3; vf2(1)=F(1); uf2(1)=x0(1,1);ch(1)=0;k(1)=k1;  %ch=0 state 3 %if this reaches fy the otehr side wall is also broken
+%             else F(1)=k1*(x0(1,1)-uf4(1))+vf4(1);k(1)=k1;  %state 1 but ch=1 Naomi %%state=1, ch=1
+%             end
+%         end
+                
+        if (state(s)==2 & ch(s)==1)
+             if (x0(1,2*s)<x0(1,(2*s-2)) && w==3) state(s)=4;uf3(s)=x0(1,(2*s-1));ch(s)=0;k(s)=k4;w=3;
+             elseif(x0(1,2*s)<x0(1,(2*s-2)) && w==2) state(s)=3;ch(s)=0; vf2(s)=F(s);uf2(s)=(x0(1,(2*s-1)));k(s)=k3;
+           
+            else F(s) = k4*(x0(1,(2*s-1))-uf1(s))+vf1(s);k(s)=k4;%%% 2/4 path?? naomi
+            end
+        end
+        
+%                 if (state(1)==2 & ch(1)==1)
+% %             w1=2; %%Naomi one side wall broken
+%             if(x0(1,2)<0 ) state(1)=3; vf2(1)=F(1); uf2(1)=x0(1,1);ch(1)=0;k(1)=k1;%state=3 ch=0 %F(1)>abs(k1*v) naomi
+%             elseif (x0(1,2)<0 & w==3)   state(1)=4;uf3(1)=x0(1,1);ch(1)=0;k(1)=k2;w1=3;%%copied the things for state 4  naomi
+%             else F(1) = k2*(x0(1,1)-uf1(1)) + k1*v;k(1)=k2;%state=2 ch=1 %%Naomi path 2 or 4??
+%             end
+%         end
+%                 
+        if (state(s)==3 & ch(s)==1)
+            if(F(s)<-k3*v) state(s)=4;uf3(s)=x0(1,(2*s-1));ch(s)=0;k(s)=k4;w=3;
+            elseif (x0(1,2*s)>x0(1,2*s-2) & w==1) state(s)=1;vf4(s)=F(s);uf4(s)=x0(1,(2*s-1)); k(s)=k3;%% add 3 to 2 Naomi
+            elseif (x0(1,2*s)>x0(1,(2*s-2))& w==2) state(s)=2;vf1(s)=F(s);uf1(s)=x0(1,(2*s-1));ch(s)=0;k(s)=k4;w=2;
+            else F(s)= vf2(s)+k3*(x0(1,2*s-1)-uf2(s));k(s)=k3; %%else F(s)= vf2(s)+k1*(x0(1,(2*s-1))-uf2(s));k(s)=k3;
+            end
+        end
+%           if (state(1)==3 & ch(1)==1)
+%             
+%          
+%             if(F(1)<-k1*v) state(1)=4;uf3(1)=x0(1,1);ch(1)=0;k(1)=k2;w1=3; %state=4 ch=0 %% if the loop enters this once the other side wall is broken the conter mentioned abolve is updated
+%             elseif (x0(1,2)>0 && w1==1) state(1)=1;vf4(1)=F(1);uf4(1)=x0(1,1);k(1)=k1;%state=1 ch=1
+%             elseif(x(1,2)>0 && w==2) state(1)=2;  uf1(1)=x0(1,1);ch(1)=0;k(1)=k2; w1=2;%% condition for state 3 is copied
+%             else F(1)= vf2(1)+k1*(x0(1,1)-uf2(1));k(1)=k1;  %state=3 ch=1 unchnaged state
+%             end
+%         end
+                
+        if (state(s)==4 & ch(s)==1)
+            w=3;
+            if (x0(1,2*s)>x0(1,(2*s-2))&&w==3) state(s)=2;vf1(s)=F(1);uf1(s)=x0(1,(2*s-1));ch(s)=0;k(s)=k4; %%% 4 to 1 never happeningg
+            else F(s)=- k4*(x0(1,2*s-1)-uf3(s))-k3* v;k(s)=k4;
+            end
+        end
+%          if (state(1)==4 & ch(1)==1)
+%             w1=3;
+% %             if (x0(1,2)>0) state(1)=1; vf4(1)=F(1);uf4(1)=x0(1,1);k(1)=k1;%state=1 ch=1
+%             if (x0(1,2)>0 && w==3) state(1)=2; uf1(1)=x0(1,1);ch(1)=0;k(1)=k2; %%condition copied %naomi
+%             else F(1)= -k2*(x0(1,1)-uf3(1))-k1* v; k(1)=k2;%state=4 ch=1 %% 2 / 4 both mean???naomi%%in state 4?
+%             end
+%         end
+       
+    end
+%      for s=2:stno
+%         
+%          ch(s)=1;  
+%          if (state(s)==1)
+%             if (F(s)>k3*v & ((x0(1,2*s))>(x0(1,(2*s-2))))) state(s)=2;uf1(s)=x0(1,(2*s-1));ch(s)=0;k(s)=k4;
+%             elseif (x0(1,2*s)<x0(1,(2*s-2))) state(s)=3; vf2(s)=F(s);uf2(s)=(x0(1,(2*s-1)));ch(s)=0;k(s)=k3;
+%             else F(s)=k3*(x0(1,(2*s-1))-uf4(s))+vf4(s);k(s)=k3;
+%             end
+%         end
+%                 
+%         if (state(s)==2 & ch(s)==1)
+%             if(x0(1,2*s)<x0(1,(2*s-2))) state(s)=3;ch(s)=0; vf2(s)=F(s);uf2(s)=(x0(1,(2*s-1)));k(s)=k3;
+%             else F(s) = k4*(x0(1,(2*s-1))-uf1(s))+k3*v;k(s)=k4;
+%             end
+%         end
+%                 
+%         if (state(s)==3 & ch(s)==1)
+%             if(F(s)<-k3*v) state(s)=4;uf3(s)=x0(1,(2*s-1));ch(s)=0;k(s)=k4;
+%             elseif (x0(1,2*s)>x0(1,(2*s-2))) state(s)=1;uf4(s)=x0(1,(2*s-1)); vf4(s)=F(s);k(s)=k3;
+%             else F(s)= vf2(s)+k1*(x0(1,(2*s-1))-uf2(s));k(s)=k3;
+%             end
+%         end
+%                 
+%         if (state(s)==4 & ch(s)==1)
+%             if (x0(1,2*s)>x0(1,(2*s-2))) state(s)=1;uf4(s)=x0(1,(2*s-1)); vf4(s)=F(s);k(s)=k3;
+%             else F(s)= -k4*(x0(1,(2*s-1))-uf3(s))-k3* v;k(s)=k4;
+%             end
+%         end
+%        
+%     end
+    
+    
+    
+    k(stno+1)=0;              
+     % m(1)=57.15e3;            % mass declaration
+     m(1)=57e3; 
+   for n=2:stno
+       m(n)=m(1);
+   end
+   
+    
+   c1=.05*4*pi*m(1)*fn;        % c= D*cr= 4D*pi*mass*fn
+    
+    for p=1:2:(2*stno-1)      % matrix A
+    for q=1:(2*stno)
+        if q==(p+1) A(p,q)=1;
+        else A(p,q)=0;
+        end
+    end
+    end
+for p=2:2:(2*stno)
+    for q=1:(2*stno)
+        if q==(p+1) A(p,q)=k(p/2+1)/m(p/2);
+        elseif q==(p-1) A(p,q)=-(k(p/2)+k(p/2+1))/m(p/2);
+        elseif q==(p-3) A(p,q)=k(p/2)/m(p/2);
+        elseif q==p A(p,q)=-2*c1/m(p/2);
+        elseif q==(p+2) A(p,q)=c1/m(p/2);
+        elseif q==(p-2) A(p,q)=c1/m(p/2);    
+        elseif (q==p & p==2*stno) A(p,q)=-c1/m(p/2);
+        else A(p,q)=0;
+        end
+    end
+end
+
+
+    for p=1:2:(2*stno-1)
+        B(p,1)=0;
+    end
+    for p=2:2:(2*stno)
+        B(p,1)=-1;
+    end
+
+    for p=1:1:(2*stno)
+        for q=1:1:(2*stno)
+            if q==p C(p,q)=1;
+            else C(p,q)=0;
+            end
+        end
+    end
+
+    D=0;
+    for T=t1big:.02:t1fin
+        c=c+1;    
+        U(1,c)=ac*sin(2*pi*(f)*T);
+        t(1,c)=T;
+        sys=ss(A,B,C,D);%%
+    end
+    [Y,t,X]=lsim(sys,U,t,x0);
+    
+    for m=1:6
+        t1(m+i,1)=t(m,1);
+    end 
+    t1big=t1(m+i);
+    t1fin=t1big+.1;
+   
+    for m = 1:6
+     for n = 1:(2*stno)
+        a(m+i,n) =Y(m,n);
+     end
+    end
+   
+     for n=1:2*stno
+         x0(1,n)=a(m+i,n);
+     end
+     
+    for m=1:6
+         for n = 1:stno
+             a2(m+i,n) =Y(m,(2*(n-1)+1));
+         end
+    end
+    for m=1:6
+        for n=1:stno              % a3 is the differential displacment of stories
+            if n==1
+                a3(m+i,n)=a2(m+i,n);
+            else a3(m+i,n)=(a2(m+i,n)-a2(m+i,(n-1)));
+            end
+        end
+    end
+    
+end
+
+%plot(t1,a2)
+% max_deflection=max(max(abs(a2))) %%naomi
+% max_drift=max(max(abs(a3))) %%naomi
+% plot(t1,a2)      % blue for 1st, green for 2nd, red for 3rd,
+% 
+% xlabel('TIME(s)');
+% ylabel('INTER STORY DRIFT(meter)');
+% %TITLE(['                                         ',num2str(stno),' nosoft elastic ',' lemda=',num2str(lemda),'  frequency=',num2str(f),' GR ACCELARATION(m/sqsec)=',num2str(ac)]);
+max_deflection=max(max(abs(a2))) %%naomi
+max_drift=max(max(abs(a3))) %%naomi
+
+
+
+%plot(t1,a2)
+subplot(2,1,1)      % blue for 1st, green for 2nd, red for 3rd,
+plot(t1, a3)
+xlabel('TIME(s)');
+ylabel('INTER STORY DRIFT(meter)');
+%TITLE(['                                         ',num2str(stno),' nosoft elastic ',' lemda=',num2str(lemda),'  frequency=',num2str(f),' GR ACCELARATION(m/sqsec)=',num2str(ac)]);
+% size(a2)
+% size(a3)
+% size(t1)
+%plot deflection %%naomi
+subplot( 2,1,2)
+plot(t1,a2);
+xlabel('TIME(s)');
+ylabel('Deflection(meter)');

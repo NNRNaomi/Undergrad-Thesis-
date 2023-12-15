@@ -1,0 +1,163 @@
+% stno=input('story number=');
+stno=6;
+% lemda=input('lemda=');
+% lemda1=input('lemda1=');
+% stper=input('ratio of inelastic stiffness to elastic=');
+ac=input('GROUND ACCELARATION(m/sqsec)=');
+f=input('frequency(Hz)=');
+infill =input (' Is there infill story present?=')% answer with 0/1/anthing else, 0 means no (bare frame), 1 mwans yes (full infill), anything else means soft story 
+a3=0;      % a3 is the differential displacment of stories     
+Y=0;
+m=0;       % mass matrix(N)
+x0=0;      %initial condition
+A=0;
+B=0;
+C=0;
+
+t1=0;  % total simulation time
+T =0;  
+i=-6;  % i is time updater for loop
+i1=0;
+a =0;  % a is the total displacement slope matrix
+a2=0;  % s2 is the total displacement matrix
+t1big=0; % bigging time of simulation in each cycle
+t1fin=.1; % finishing time of simulation in each cycle
+  % initial condition ( displacement,slope)
+  
+  
+% if infill==0  k1=140e6;k2=140e6; k3=140e6; k4=140e6; factor 10
+if infill==0  k1=140e6;k2=140e6; k3=140e6; k4=140e6; %%factor 6
+ elseif infill==1 k1=820e6;k2=820e6; k3=820e6; k4=820e6;
+ else  k1=140e6; k2=140e6; k3=820e6; k4=820e6;%%soft story
+end
+
+
+
+% if infill==0  k1=294e6;k2=294e6; k3=294e6; k4=294e6; 
+%  elseif infill==1 k1=1022e6;k2=294e6; k3=1022e6; k4=294e6;    %%15 inch column.
+%  else  k1=294e6;k2=294e6; k3=1022e6; k4=294e6;
+% end
+
+
+
+for q=1:1:(2*stno)
+    x0(1,q)=0;
+end
+for T1=.1:.1:5 %%naomi 5 to 20
+    i=i+6;
+  
+t=0;
+c=0;
+T=0;
+U=0;
+p=0;
+q=0;
+
+k(1)=k1;
+for s=2:stno %%naomi
+    k(s)=k3;
+end
+    k(stno+1)=0;              
+     m(1)=57e3;            % mass declaration without LL
+   for n=2:stno
+       m(n)=m(1);
+   end
+   
+    
+    for p=1:2:(2*stno-1)
+    for q=1:(2*stno)
+        if q==(p+1) A(p,q)=1;
+        else A(p,q)=0;
+        end
+    end
+    end
+for p=2:2:(2*stno)
+    for q=1:(2*stno)
+        if q==(p+1) A(p,q)=k(p/2+1)/m(p/2);
+        elseif q==(p-1) A(p,q)=-(k(p/2)+k(p/2+1))/m(p/2);
+        elseif q==(p-3) A(p,q)=k(p/2)/m(p/2);   
+        else A(p,q)=0;
+        end
+    end
+end
+
+    for p=1:2:(2*stno-1)
+        B(p,1)=0;
+    end
+    for p=2:2:(2*stno)
+        B(p,1)=-1;
+    end
+
+    for p=1:1:(2*stno)
+        for q=1:1:(2*stno)
+            if q==p C(p,q)=1;
+            else C(p,q)=0;
+            end
+        end
+    end
+
+    D=0;
+    
+    for T=t1big:.02:t1fin
+        c=c+1;
+        if t1big<2
+            U(1,c)=ac*sin(2*pi*(f)*T);
+        else  U(1,c)=0;
+        end
+        t(1,c)=T;
+        sys=ss(A,B,C,D);
+    end
+    
+    [Y,t,X]=lsim(sys,U,t,x0);
+    
+    for m=1:6
+        t1(m+i,1)=t(m,1);
+    end 
+    t1big=t1(m+i);
+    t1fin=t1big+.1;
+   
+    for m = 1:6 %%why 6
+     for n = 1:(2*stno)
+        a(m+i,n) =Y(m,n);
+     end
+    end
+   
+     for n=1:2*stno
+         x0(1,n)=a(m+i,n);
+     end
+     
+    for m=1:6
+         for n = 1:stno
+             a2(m+i,n) =Y(m,(2*(n-1)+1));
+         end
+    end
+    for m=1:6
+        for n=1:stno              % a3 is the differential displacment of stories
+            if n==1
+                a3(m+i,n)=a2(m+i,n);
+            else a3(m+i,n)=(a2(m+i,n)-a2(m+i,(n-1)));
+            end
+        end
+    end
+    
+end
+max_deflection=max(max(abs(a2))) %%naomi;
+% %plot(t1,a2)
+% plot(t1,a3)      % blue for 1st, green for 2nd, red for 3rd,
+% XLABEL('TIME(s)');
+% YLABEL('INTER STORY DRIFT(meter)');
+% %TITLE(['                                         ',num2str(stno),' nosoft elastic ',' lemda=',num2str(lemda),'  frequency=',num2str(f),' GR ACCELARATION(m/sqsec)=',num2str(ac)]);
+%plot(t1,a2)
+subplot(2,1,1)      % blue for 1st, green for 2nd, red for 3rd,
+plot(t1, a3)
+xlabel('TIME(s)');
+ylabel('INTER STORY DRIFT(meter)');
+%TITLE(['                                         ',num2str(stno),' nosoft elastic ',' lemda=',num2str(lemda),'  frequency=',num2str(f),' GR ACCELARATION(m/sqsec)=',num2str(ac)]);
+% size(a2)
+% size(a3)
+% size(t1)
+%plot deflection %%naomi
+subplot( 2,1,2)
+plot(t1,a2);
+xlabel('TIME(s)');
+ylabel('Deflection(meter)');
